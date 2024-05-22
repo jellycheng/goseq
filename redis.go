@@ -33,3 +33,9 @@ func GetKeyValue(rdb *redis.Client, key string) string {
 	val, _ := rdb.Get(ctx, key).Result()
 	return val
 }
+
+func GetRedisClient4Json(str string) *redis.Client {
+	cfg := &RedisCfg{}
+	_ = gosupport.JsonUnmarshal(str, cfg)
+	return GetRedisClient(*cfg)
+}
