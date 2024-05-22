@@ -19,3 +19,11 @@
 
 # Go workspace file
 go.work
+cjs/
+cjs_test.go
+cjs.ini
+cjs.json
+cjs.yml
+go.sum
+.DS_Store
+.env
