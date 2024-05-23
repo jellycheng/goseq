@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jellycheng/gosupport"
@@ -59,8 +60,11 @@ func GetKeyValue(myRedis *MyRedisClient, key string) string {
 // 前缀+年月日+今天过去秒+今天自增序列号
 func DefaultSeq(myRedis *MyRedisClient, seqPrefix string) string {
 	ret := ""
-	tmpKey := GetSeqDefaultRedisKey()
+	tmpKey := fmt.Sprintf("%s%s", myRedis.cfg.Prefix, GetSeqDefaultRedisKey())
 	num := myRedis.rdb.Incr(ctx, tmpKey).Val()
+	if num < 10 {
+		myRedis.rdb.Expire(ctx, tmpKey, 86400*time.Second)
+	}
 	incrStr := strconv.FormatInt(num%999999, 10)
 	ret = fmt.Sprintf("%s%s%d%s", seqPrefix, gosupport.TimeNow2Format("20060102"), TodayPastTime(), incrStr)
 	return ret
