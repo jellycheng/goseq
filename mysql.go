@@ -21,3 +21,17 @@ func QueryRuleData(connect *sql.DB, saasSeq, orderType, tbl string) (SeqRuleV1Dt
 	}
 	return ret, err
 }
+
+func UpdateRuleData(connect *sql.DB, tbl string, id int64, isincr bool, increment int64, ruleDay string) (retid int64, err error) {
+	if tbl == "" {
+		tbl = "t_seq_rule"
+	}
+	sqlStr := ""
+	if isincr {
+		sqlStr = fmt.Sprintf("update %s set `increment`=`increment`+?,`rule_day`=? where id=? limit 1;", tbl)
+	} else {
+		sqlStr = fmt.Sprintf("update %s set `increment`=?,`rule_day`=? where id=? limit 1;", tbl)
+	}
+	retid, err = dbutils.UpdateSql(connect, sqlStr, increment, ruleDay, id)
+	return
+}

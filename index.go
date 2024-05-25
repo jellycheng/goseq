@@ -35,6 +35,11 @@ func GetRuleDateFormat(key string) string {
 	return ""
 }
 
+// 账号+单据类型 key
+func GetSaasSeqTypeKey(saasSeq, orderType string) string {
+	return gosupport.Md5V1(fmt.Sprintf("%s%s", saasSeq, orderType))
+}
+
 func CreateSeqV1(redisCfg RedisCfg, connect *sql.DB, saasSeq, orderType, tbl, defaultSeqPrefix string) string {
 	ret := ""
 	if saasSeq == "" || orderType == "" || tbl == "" {
@@ -47,15 +52,16 @@ func CreateSeqV1(redisCfg RedisCfg, connect *sql.DB, saasSeq, orderType, tbl, de
 	}
 	//fmt.Println(fmt.Sprintf("%+v", seqDto))
 	if seqDto.Id == "" || seqDto.SaasSeq == "" { //没有配置规则，使用默认规则
-		return DefaultSeq(rdb, defaultSeqPrefix)
+		return DefaultSeqV1(rdb, defaultSeqPrefix, "rule")
 	}
-	partKey := gosupport.Md5V1(fmt.Sprintf("%s%s", seqDto.SaasSeq, seqDto.OrderType))
+	todayStr := gosupport.TimeNow2Format("20060102")
+	// 账号+单据类型
+	partKey := GetSaasSeqTypeKey(seqDto.SaasSeq, seqDto.OrderType)
 	tmpKey := ""
-	if seqDto.DayClean == "1" {
-		// 按日清零： redis全局前缀 + md5(业务) + 今天
-		tmpKey = fmt.Sprintf("%s%s:%s", rdb.GetCfg().Prefix, partKey, gosupport.TimeNow2Format("20060102"))
+	if seqDto.DayClean == DayCleanTrue { // 按日清零： redis前缀:md5(账号+单据类型):今天
+		tmpKey = fmt.Sprintf("%s%s:%s", rdb.GetCfg().Prefix, partKey, todayStr)
 
-	} else { // 不清零
+	} else { // 不按日清零, redis前缀:md5(账号+单据类型):no
 		tmpKey = fmt.Sprintf("%s%s:%s", rdb.GetCfg().Prefix, partKey, "no")
 	}
 
@@ -85,10 +91,23 @@ func CreateSeqV1(redisCfg RedisCfg, connect *sql.DB, saasSeq, orderType, tbl, de
 	// 单据前缀 + 时间格式化 + 流水号
 	seqFormat := "%s%s%0" + gosupport.ToStr(noNum) + "d"
 	// 当前流水号
-	num := rdb.GetRedisClient().Incr(ctx, tmpKey).Val()
-	ret = fmt.Sprintf(seqFormat, seqDto.Prefix, curTimeStr, num)
+	increment := rdb.GetRedisClient().Incr(ctx, tmpKey).Val()
+	if seqDto.DayClean == DayCleanTrue && increment < 5 {
+		rdb.GetRedisClient().Expire(ctx, tmpKey, 86400*time.Second)
+	}
+	offsetVal := gosupport.StrTo(seqDto.Increment).MustInt64() + 1 - increment
+	if offsetVal > 0 {
+		increment = rdb.GetRedisClient().IncrBy(ctx, tmpKey, offsetVal).Val()
+	}
+
+	ret = fmt.Sprintf(seqFormat, seqDto.Prefix, curTimeStr, increment)
 
 	// 更新db
+	if seqDto.RuleDay != todayStr {
+		_, _ = UpdateRuleData(connect, tbl, gosupport.StrTo(seqDto.Id).MustInt64(), false, increment, todayStr)
+	} else {
+		_, _ = UpdateRuleData(connect, tbl, gosupport.StrTo(seqDto.Id).MustInt64(), true, 1, todayStr)
+	}
 
 	return ret
 }

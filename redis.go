@@ -57,10 +57,14 @@ func GetKeyValue(myRedis *MyRedisClient, key string) string {
 	return val
 }
 
-// 前缀+年月日+今天过去秒+今天自增序列号
+// 单据前缀+年月日+今天过去秒+今天自增序列号
 func DefaultSeq(myRedis *MyRedisClient, seqPrefix string) string {
+	return DefaultSeqV1(myRedis, seqPrefix, "")
+}
+
+func DefaultSeqV1(myRedis *MyRedisClient, seqPrefix string, redisPrefix string) string {
 	ret := ""
-	tmpKey := fmt.Sprintf("%s%s", myRedis.cfg.Prefix, GetSeqDefaultRedisKey())
+	tmpKey := fmt.Sprintf("%s%s", myRedis.cfg.Prefix, GetSeqDefaultRedisKey(redisPrefix))
 	num := myRedis.rdb.Incr(ctx, tmpKey).Val()
 	if num < 10 {
 		myRedis.rdb.Expire(ctx, tmpKey, 86400*time.Second)
@@ -76,6 +80,10 @@ func NewRedisClient4Json(str string) *MyRedisClient {
 	return NewRedisClient(*cfg)
 }
 
-func GetSeqDefaultRedisKey() string {
-	return fmt.Sprintf("goseq:%s", gosupport.TimeNow2Format("20060102"))
+func GetSeqDefaultRedisKey(redisPrefix ...string) string {
+	rk := "goseq"
+	if len(redisPrefix) > 0 && redisPrefix[0] != "" {
+		rk = redisPrefix[0]
+	}
+	return fmt.Sprintf("%s:%s", rk, gosupport.TimeNow2Format("20060102"))
 }
