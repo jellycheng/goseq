@@ -20,7 +20,8 @@ func main() {
 	redisCfg := goseq.RedisCfg{
 		Host:   "127.0.0.1",
 		Port:   "6379",
-		Prefix: "goseq:",
+		Password: "", // redis密码
+		Prefix: "goseq:", //key前缀
 	}
 
 	rdb := goseq.NewRedisClient(redisCfg)
@@ -45,28 +46,33 @@ import (
 func main() {
 
 	redisCfg := goseq.RedisCfg{
-		Host:   "127.0.0.1",
-		Port:   "6379",
-		Prefix: "goseq:",
+		Host:     "127.0.0.1",
+		Port:     "6379",
+		Prefix:   "goseq:",
+		Password: "", // redis密码
 	}
 
-	sqlHost := "数据库host"
-	user := "数据库账号"
-	pwd := "数据库密码"
-	saasSeq := "saas123"
-	orderType := "103"
-	dbname := "db_saas" // 库名
-	tbl := "t_order_no_rule" // 表名
-	dsn := dbutils.GetDsn(map[string]interface{}{"host": sqlHost, "username": user, "password": pwd, "dbname": dbname})
+	dbHost := "localhost" //数据库host
+	dbUser := "root"      //数据库账号
+	dbPwd := ""   //数据库密码
+	dbname := "db_jifen"  // 数据库库名
+	tbl := "t_seq_rule"   // 表名
+	saasSeq := "saas123"  //saas编码,账套、租户ID
+	orderType := "103"    // 订单类型
+	dsn := dbutils.GetDsn(map[string]interface{}{
+		"host":     dbHost,
+		"username": dbUser,
+		"password": dbPwd,
+		"dbname":   dbname,
+	})
 	con, er := dbutils.DbConnect(dsn)
 	if er != nil { // 连接db失败
 		fmt.Println(er.Error())
 	} else {
 		seqDb := goseq.CreateSeqV1(redisCfg, con, saasSeq, orderType, tbl, "SOL")
-		fmt.Println(seqDb)
+		fmt.Println(seqDb) // SOL2506161431140005
 	}
 }
-
 
 ```
 
@@ -96,7 +102,7 @@ CREATE TABLE `t_seq_rule` (
   UNIQUE KEY `uniq_saas_order_type` (`saas_seq`,`order_type`) USING BTREE
 ) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='单据编号规则设置表';
 
-
+INSERT INTO `t_seq_rule`(`rule_seq`, `order_type`, `prefix`, `date_format`, `no_num`, `day_clean`, `remark`, `saas_seq`, `creator_id`, `operator_id`, `is_delete`, `create_time`, `update_time`) VALUES ('202506161459001', 103, 'SOL', ',y,m,d,H,i,s,', 4, 1, '订单号规则', 'saas123', 0, 0, 0, UNIX_TIMESTAMP(now()), UNIX_TIMESTAMP(now()));
 
 ```
 
